@@ -1,5 +1,6 @@
 streamlit
 h5py
+torch
 numpy
 plotly
 scipy
