@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import plotly.graph_objects as go
 from scipy.signal import butter, lfilter, stft, welch
+from artifact_analyzer import ArtifactAnalyzer
 
 # --- Page Configuration ---
 st.set_page_config(page_title="EEG Signal Analyzer", layout="wide")
@@ -11,6 +12,7 @@ st.title("🧠 EEG Reconstruction & Frequency Analysis")
 
 FS = 200
 FRAME_SIZE = 800
+analyzer = ArtifactAnalyzer(fs=FS)
 
 # --- Signal Processing Functions ---
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=4):
@@ -51,7 +53,6 @@ file2 = st.sidebar.file_uploader("Upload Reconstructed signal (.h5 or .pt)", typ
 
 st.sidebar.divider()
 
-# Guide on Identifying Artifacts from Graphs
 with st.sidebar.expander("🔍 Guide: Identifying Artifacts from Graphs", expanded=True):
     st.markdown("""
     Use these guidelines to spot artifacts from plotted data:
@@ -78,7 +79,6 @@ selected_band_name = st.sidebar.selectbox("Select EEG Band", list(bands.keys()))
 
 if file1 or file2:
     try:
-        # If both files are uploaded, use file1 and file2
         if file1 and file2:
             signals1 = load_signals(file1)
             signals2 = load_signals(file2)
@@ -167,6 +167,33 @@ if file1 or file2:
             fig_time.update_layout(title="Time Domain Signal Comparison", template="plotly_dark", height=400)
             st.plotly_chart(fig_time, use_container_width=True)
 
+            # --- Artifact Analyzer Section ---
+            st.divider()
+            st.subheader("🤖 Artifact Analysis")
+            colA, colB = st.columns(2)
+            with colA:
+                art1 = analyzer.analyze(y1_final)
+                st.markdown(f"#### Signal 1 ({file1.name.split('/')[-1]})")
+                st.write(f"**Artifact Type:** {art1['artifact_type']}")
+                st.write(f"**Severity:** {art1['severity']}")
+                st.write(f"**PTP (Peak-to-Peak):** {art1['ptp']:.2f} µV")
+                st.write(f"**Ocular Power (0.5-4 Hz):** {art1['low_freq_power']:.2f} dB/Hz")
+                st.write(f"**EMG Power (> 30 Hz):** {art1['emg_power']:.2f} dB/Hz")
+                st.write(f"**Line Noise Power (50 Hz):** {art1['line_noise_power']:.2f} dB/Hz")
+
+            with colB:
+                art2 = analyzer.analyze(y2_final)
+                st.markdown(f"#### Signal 2 ({file2.name.split('/')[-1]})")
+                st.write(f"**Artifact Type:** {art2['artifact_type']}")
+                st.write(f"**Severity:** {art2['severity']}")
+                st.write(f"**PTP (Peak-to-Peak):** {art2['ptp']:.2f} µV")
+                st.write(f"**Ocular Power (0.5-4 Hz):** {art2['low_freq_power']:.2f} dB/Hz")
+                st.write(f"**EMG Power (> 30 Hz):** {art2['emg_power']:.2f} dB/Hz")
+                st.write(f"**Line Noise Power (50 Hz):** {art2['line_noise_power']:.2f} dB/Hz")
+            
+            # --- End of Artifact Analysis ---
+
+            st.divider()
             st.subheader("📊 Statistical Comparison")
             snr_val = compute_snr_db_numpy(y1_final, y2_final)
             corr = np.corrcoef(y1_final, y2_final)[0, 1]
@@ -223,7 +250,6 @@ if file1 or file2:
             st.plotly_chart(fig_psd, use_container_width=True)
 
         else:
-            # Single File Analysis (Either file1 or file2, but not both)
             target_file = file1 if file1 else file2
             signals = load_signals(target_file)
             keys = sorted(list(signals.keys()))
@@ -272,6 +298,22 @@ if file1 or file2:
                 height=400
             )
             st.plotly_chart(fig_time, use_container_width=True)
+
+            # --- Single Artifact Analyzer Section ---
+            st.divider()
+            st.subheader("🤖 Artifact Analysis")
+            art_single = analyzer.analyze(y_final)
+            
+            s_col1, s_col2 = st.columns(2)
+            with s_col1:
+                st.write(f"**Artifact Type:** {art_single['artifact_type']}")
+                st.write(f"**Severity:** {art_single['severity']}")
+            with s_col2:
+                st.write(f"**PTP (Peak-to-Peak):** {art_single['ptp']:.2f} µV")
+                st.write(f"**Ocular Power (0.5-4 Hz):** {art_single['low_freq_power']:.2f} dB/Hz")
+                st.write(f"**EMG Power (> 30 Hz):** {art_single['emg_power']:.2f} dB/Hz")
+                st.write(f"**Line Noise Power (50 Hz):** {art_single['line_noise_power']:.2f} dB/Hz")
+            # --- End of Single Artifact Analysis ---
 
             st.divider()
             st.subheader("📉 Frequency Domain: STFT Spectrogram")

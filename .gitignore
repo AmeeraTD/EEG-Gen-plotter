@@ -1,0 +1,10 @@
+# Ignore Python cache and environment files
+__pycache__/
+.env
+.venv/
+env/
+
+# Ignore large data files and checkpoints
+*.h5
+*.pt
+*.pkl
